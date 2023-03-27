@@ -69,7 +69,7 @@ int pulseWidth(servo_t *servo, int angle)
   }
 
   // return (int)(SERVOMIN + (SERVOMAX - SERVOMIN)/(ANGLEMAX - ANGLEMIN)*angle);
-  return (int)(servo->servo_min + (servo->servo_max - servo->servo_min)/(servo->angle_max - servo->angle_min)*angle);
+  return (int)(servo->servo_min + (servo->servo_max - servo->servo_min)/(servo->angle_max - servo->angle_min)*(angle - servo->angle_min));
 }
 
 ros::Subscriber<sensor_msgs::JointState> sub("joint_states", servo_cb);
@@ -85,15 +85,15 @@ void setup() {
 //  Serial.println("ROS Arduino comms!");
 
   base.servonum = 0;
-  base.servo_min = 103.0;
+  base.servo_min = 130.0;
   base.servo_max = 512.0;
   base.angle_min = 0.0;
   base.angle_max = 180.0;
   base.current_pulse_width = base.servo_min;
 
-  shoulder.servonum = 2;
-  shoulder.servo_min = 130.0;
-  shoulder.servo_max = 460.0;
+  shoulder.servonum = 3;
+  shoulder.servo_min = 120.0;
+  shoulder.servo_max = 430.0;
   shoulder.angle_min = 0.0;
   shoulder.angle_max = 180.0;
   shoulder.current_pulse_width = shoulder.servo_min;
@@ -145,11 +145,13 @@ void setup() {
 
   // Resets back to 0 degrees
   pwm.setPWM(base.servonum,     0, base.servo_min);
-  pwm.setPWM(shoulder.servonum, 0, base.servo_min);
-  pwm.setPWM(elbow.servonum,    0, base.servo_min);
-  pwm.setPWM(wrist.servonum,    0, base.servo_min);
-  pwm.setPWM(gripper.servonum,  0, base.servo_min);
+  pwm.setPWM(shoulder.servonum, 0, shoulder.servo_min);
+  pwm.setPWM(elbow.servonum,    0, elbow.servo_min);
+  pwm.setPWM(wrist.servonum,    0, wrist.servo_min);
+  pwm.setPWM(gripper.servonum,  0, gripper.servo_min);
 
+  moveToAngle(&base, 90);
+  delay(1000);
   moveToAngle(&shoulder, 90);
   delay(1000);
   moveToAngle(&elbow, 90);
@@ -204,25 +206,25 @@ double trimLimits(double mtr_pos) {
 // Function move motor to ROS angle
 void servo_cb(const sensor_msgs::JointState& cmd_msg) {
   // these can have adjustment factors + or - 90/180/whatever degrees
-  double mtrDegreeBase = trimLimits(radiansToDegrees(cmd_msg.position[0]));
-  double mtrDegreeShoulder = trimLimits(radiansToDegrees(cmd_msg.position[1]));
-  double mtrDegreeElbow = trimLimits(radiansToDegrees(cmd_msg.position[2]));
-  double mtrDegreeWrist = trimLimits(radiansToDegrees(cmd_msg.position[3]));
+  double mtrDegreeBase = trimLimits(radiansToDegrees(cmd_msg.position[0]) + 90);
+  double mtrDegreeShoulder = trimLimits(radiansToDegrees(cmd_msg.position[1]) + 90);
+  double mtrDegreeElbow = trimLimits(radiansToDegrees(cmd_msg.position[2]) + 45);
+  double mtrDegreeWrist = trimLimits(radiansToDegrees(cmd_msg.position[3]) + 45);
   double mtrDegreePivot = trimLimits(radiansToDegrees(cmd_msg.position[4]));
   double mtrDegreeGripper = trimLimits(radiansToDegrees(cmd_msg.position[5]));
 
   // Store motor movements for publishing back to ROS (debugging)
-  servoDegree[0] = mtrDegreeBase;
-  servoDegree[1] = mtrDegreeShoulder;
-  servoDegree[2] = mtrDegreeElbow;
-  servoDegree[3] = mtrDegreeWrist;
+  servoDegree[0] = mtrDegreeBase - 90;
+  servoDegree[1] = mtrDegreeShoulder - 90;
+  servoDegree[2] = mtrDegreeElbow - 45;
+  servoDegree[3] = mtrDegreeWrist - 45;
   servoDegree[4] = mtrDegreePivot;
   servoDegree[5] = mtrDegreeGripper;
 
 //  moveMotorDeg(mtrDegreeBase, motorBase);
   moveToAngle(&base, mtrDegreeBase);
-  moveToAngle(&shoulder, mtrDegreeShoulder);
-  moveToAngle(&elbow, mtrDegreeElbow);
+  moveToAngle(&shoulder, 180 - (mtrDegreeShoulder));
+  moveToAngle(&elbow, (mtrDegreeElbow));
   moveToAngle(&wrist, mtrDegreeWrist);
   moveToAngle(&gripper, mtrDegreeGripper);
 }
