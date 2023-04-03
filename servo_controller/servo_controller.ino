@@ -42,7 +42,6 @@ std_msgs::Int16MultiArray str_msg2;
 ros::Publisher chatter("servoarm", &str_msg2);
 int servoDegree[6];
 
-
 typedef struct {
   int servonum; // Pin
 
@@ -98,7 +97,7 @@ void setup() {
   shoulder.angle_max = 180.0;
   shoulder.current_pulse_width = shoulder.servo_min;
 
-  elbow.servonum = 4;
+  elbow.servonum = 15;
   elbow.servo_min = 115.0;
   elbow.servo_max = 510.0;
   elbow.angle_min = 0.0;
@@ -115,8 +114,8 @@ void setup() {
   gripper.servonum = 8;
   gripper.servo_min = 150.0;
   gripper.servo_max = 430.0;
-  gripper.angle_min = 0.0;
-  gripper.angle_max = 110.0;
+  gripper.angle_min = 0.0; // open
+  gripper.angle_max = 110.0; // closed
   gripper.current_pulse_width = gripper.servo_min;
 
 
@@ -201,7 +200,13 @@ double trimLimits(double mtr_pos) {
   return mtr_pos;
 }  
 
-
+double gripper_position(float position_m)
+{
+  if(position_m < 0.005) { // open
+    return (gripper.angle_min);
+  } 
+  return 100; // close
+}
 
 // Function move motor to ROS angle
 void servo_cb(const sensor_msgs::JointState& cmd_msg) {
@@ -210,16 +215,16 @@ void servo_cb(const sensor_msgs::JointState& cmd_msg) {
   double mtrDegreeShoulder = trimLimits(radiansToDegrees(cmd_msg.position[1]) + 90);
   double mtrDegreeElbow = trimLimits(radiansToDegrees(cmd_msg.position[2]) + 45);
   double mtrDegreeWrist = trimLimits(radiansToDegrees(cmd_msg.position[3]) + 45);
-  double mtrDegreePivot = trimLimits(radiansToDegrees(cmd_msg.position[4]));
-  double mtrDegreeGripper = trimLimits(radiansToDegrees(cmd_msg.position[5]));
+  double mtrDegreePivot = trimLimits(radiansToDegrees(cmd_msg.position[5]));
+  double mtrDegreeGripper = trimLimits(gripper_position(cmd_msg.position[4]));
 
   // Store motor movements for publishing back to ROS (debugging)
   servoDegree[0] = mtrDegreeBase - 90;
   servoDegree[1] = mtrDegreeShoulder - 90;
   servoDegree[2] = mtrDegreeElbow - 45;
   servoDegree[3] = mtrDegreeWrist - 45;
-  servoDegree[4] = mtrDegreePivot;
-  servoDegree[5] = mtrDegreeGripper;
+  servoDegree[5] = mtrDegreePivot;
+  servoDegree[4] = cmd_msg.position[4];
 
 //  moveMotorDeg(mtrDegreeBase, motorBase);
   moveToAngle(&base, mtrDegreeBase);
@@ -235,4 +240,5 @@ void loop() {
   str_msg2.data_length = 6;
   chatter.publish( &str_msg2 );
   nh.spinOnce();
+  delay(1);
 }
